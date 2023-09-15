@@ -34,9 +34,8 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { latLngToVector3Relative, toLatLngAltitudeLiteral } from "./util";
-
 import type { LatLngTypes } from "./util";
+import { latLngToVector3Relative, toLatLngAltitudeLiteral } from "./util";
 
 const DEFAULT_UP = new Vector3(0, 0, 1);
 
@@ -112,6 +111,13 @@ export interface ThreeJSOverlayViewOptions {
    * @default true
    */
   addDefaultLighting?: boolean;
+
+  /**
+   * Function to be called after every render, passes `this` as an argument
+   * @param self ThreeJSOverlayView instance
+   * @default undefined
+   */
+  onRender?: (self: ThreeJSOverlayView) => void;
 }
 
 /* eslint-disable @typescript-eslint/no-empty-function */
@@ -120,6 +126,8 @@ export interface ThreeJSOverlayViewOptions {
  * Add a [three.js](https://threejs.org) scene as a [Google Maps WebGLOverlayView](http://goo.gle/WebGLOverlayView-ref).
  */
 export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
+  public static ID: number;
+  public readonly id: number;
   /** {@inheritDoc ThreeJSOverlayViewOptions.scene} */
   public readonly scene: Scene;
 
@@ -133,9 +141,13 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
   protected readonly rotationInverse: Quaternion = new Quaternion();
   protected readonly projectionMatrixInverse = new Matrix4();
 
-  protected readonly overlay: google.maps.WebGLOverlayView;
-  protected renderer: WebGLRenderer;
+  protected overlay: google.maps.WebGLOverlayView;
+  public renderer: WebGLRenderer;
   protected raycaster: Raycaster = new Raycaster();
+
+  onRender?: ThreeJSOverlayViewOptions["onRender"];
+
+  protected stopped: boolean = false;
 
   constructor(options: ThreeJSOverlayViewOptions = {}) {
     const {
@@ -145,12 +157,17 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
       map,
       animationMode = "ondemand",
       addDefaultLighting = true,
+      onRender,
     } = options;
+
+    this.id = ThreeJSOverlayView.ID;
+    ThreeJSOverlayView.ID++;
 
     this.overlay = new google.maps.WebGLOverlayView();
     this.renderer = null;
     this.camera = null;
     this.animationMode = animationMode;
+    this.onRender = onRender;
 
     this.setAnchor(anchor);
     this.setUpAxis(upAxis);
@@ -166,6 +183,8 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
     this.overlay.onDraw = this.onDraw.bind(this);
 
     this.camera = new PerspectiveCamera();
+
+    this.raycaster.camera = this.camera;
 
     if (map) {
       this.setMap(map);
@@ -385,6 +404,8 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
     this.renderer = new WebGLRenderer({
       canvas: gl.canvas,
       context: gl,
+      antialias: true,
+      preserveDrawingBuffer: true,
       ...gl.getContextAttributes(),
     });
     this.renderer.autoClear = false;
@@ -422,6 +443,8 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
    *     Google basemap.
    */
   public onDraw({ gl, transformer }: google.maps.WebGLDrawOptions): void {
+    if (!this.camera || !this.overlay || !this.getMap()) return;
+
     this.camera.projectionMatrix.fromArray(
       transformer.fromLatLngAltitude(this.anchor, this.rotationArray)
     );
@@ -430,10 +453,12 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
 
     this.onBeforeDraw();
 
+    if (this.animationMode === "always" && !this.stopped) this.requestRedraw();
+
     this.renderer.render(this.scene, this.camera);
     this.renderer.resetState();
 
-    if (this.animationMode === "always") this.requestRedraw();
+    this.onRender?.(this);
   }
 
   /**
@@ -526,5 +551,18 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
     dirLight.position.set(0, 10, 100);
 
     this.scene.add(hemiLight, dirLight);
+  }
+
+  public setStopped(value: boolean): void {
+    this.stopped = value;
+  }
+
+  delete() {
+    this.onContextLost();
+    this.unbindAll();
+    this.overlay.setMap(null);
+
+    // @ts-ignore
+    delete this.overlay;
   }
 }
