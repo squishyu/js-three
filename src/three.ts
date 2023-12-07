@@ -406,6 +406,7 @@ export class ThreeJSOverlayView implements google.maps.WebGLOverlayView {
       context: gl,
       antialias: true,
       preserveDrawingBuffer: true,
+      logarithmicDepthBuffer: true,
       ...gl.getContextAttributes(),
     });
     this.renderer.autoClear = false;
