@@ -103,7 +103,7 @@ export declare class ThreeJSOverlayView implements google.maps.WebGLOverlayView 
     protected readonly rotationArray: Float32Array;
     protected readonly rotationInverse: Quaternion;
     protected readonly projectionMatrixInverse: Matrix4;
-    protected readonly overlay: google.maps.WebGLOverlayView;
+    protected overlay: google.maps.WebGLOverlayView;
     renderer: WebGLRenderer;
     protected raycaster: Raycaster;
     onRender?: ThreeJSOverlayViewOptions["onRender"];
