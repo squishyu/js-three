@@ -35,7 +35,7 @@
         "docs": "typedoc src/index.ts && npm run build:examples && cp -r dist docs/dist && cp -r public docs/public",
         "format": "eslint . --fix",
         "lint": "eslint .",
-        "prepare": "rm -rf dist && rollup -c",
+        "build:all": "rm -rf dist && rollup -c",
         "start": "run-p start:*",
         "start:rollup": "rollup -c rollup.config.examples.js -w --no-watch.clearScreen",
         "start:server": "http-server ./public",
